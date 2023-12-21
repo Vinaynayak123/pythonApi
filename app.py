@@ -1,53 +1,40 @@
+from flask import Flask, request, jsonify
 import os
 import shutil
-from flask import Flask, jsonify
-import urllib.parse
-from urllib.parse import quote as url_quote  # Use quote directly
+
 app = Flask(__name__)
 
-# Specify the path to the temp directory on Windows
-temp_directory = r'C:\Windows\Temp'
+def clean_junk_files(directory):
+    # Define the file extensions or criteria for identifying junk files
+    junk_file_extensions = ['.tmp', '.bak', '.log', '.swp', '.DS_Store']
 
-def directory_exists(dir_path):
-    try:
-        os.access(dir_path, os.F_OK)
-        return True
-    except FileNotFoundError:
-        return False
-
-# Define a route that triggers the file deletion
-@app.route('/delete-files')
-def delete_files():
-    try:
-        # Check if the temp directory exists, create if not
-        if not directory_exists(temp_directory):
-            app.logger.error(f"Temp directory {temp_directory} does not exist.")
-            return jsonify({"error": "Temp directory does not exist"}), 404
-
-        # Read the contents of the temp directory
-        files = os.listdir(temp_directory)
-
-        # Delete each file or directory
+    # Iterate through files in the directory and remove junk files
+    for root, dirs, files in os.walk(directory):
         for file in files:
-            file_path = os.path.join(temp_directory, file)
-            try:
-                if os.path.isfile(file_path):
-                    os.unlink(file_path)
-                    app.logger.info(f"File {file_path} deleted successfully")
-                elif os.path.isdir(file_path):
-                    shutil.rmtree(file_path)
-                    app.logger.info(f"Directory {file_path} deleted successfully")
-            except PermissionError as perm_error:
-                app.logger.error(f"Permission error deleting {os.path.basename(file_path)}: {perm_error}")
-            except Exception as delete_error:
-                app.logger.error(f"Error deleting {os.path.basename(file_path)}: {delete_error}")
+            if any(file.endswith(ext) for ext in junk_file_extensions):
+                file_path = os.path.join(root, file)
+                os.remove(file_path)
 
-        # Send a JSON response indicating success
-        return jsonify({"message": "Deletion attempted for all files and directories"})
+    return {"message": "Junk files cleaned successfully"}
 
-    except Exception as error:
-        app.logger.error(f"Error: {error}")
-        return jsonify({"error": f"Internal Server Error: {str(error)}"}), 500
+@app.route('/clean-junk-files', methods=['POST'])
+def clean_junk_files_api():
+    data = request.get_json()
 
-if __name__ == '__main__':
+    # Check if the 'directory' key is present in the JSON request
+    if 'directory' not in data:
+        return jsonify({"error": "Missing 'directory' parameter"}), 400
+
+    directory = data['directory']
+
+    # Check if the specified directory exists
+    if not os.path.exists(directory):
+        return jsonify({"error": "Directory not found"}), 404
+
+    # Perform the junk file cleaning operation
+    result = clean_junk_files(directory)
+
+    return jsonify(result)
+
+if _name_ == '__main__':
     app.run(debug=True)
