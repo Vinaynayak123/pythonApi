@@ -1,7 +1,8 @@
-from flask import Flask, jsonify
+from fastapi import FastAPI, HTTPException
+import shutil
 import os
-import shutil 
-app = Flask(__name__)
+
+app = FastAPI()
 
 # Your code for cleaning temporary files
 def clean_temp_files():
@@ -35,11 +36,15 @@ def clean_temp_files():
                     except Exception as e:
                         print(f"Error deleting {filepath}: {e}")
 
-# Define a route for cleaning temporary files
-@app.route('/clean_temp_files', methods=['GET'])
-def route_clean_temp_files():
-    clean_temp_files()
-    return jsonify({'message': 'Temporary files cleaned successfully.'})
+# Define an API endpoint for cleaning temporary files
+@app.get("/clean_temp_files")
+def read_root():
+    try:
+        clean_temp_files()
+        return {"message": "Temporary files cleaned successfully."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
-if _name_ == '__main__':
-    app.run(debug=True)
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="127.0.0.1", port=8000)
